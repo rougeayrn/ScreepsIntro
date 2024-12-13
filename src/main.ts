@@ -1,4 +1,14 @@
-import { ErrorMapper } from "utils/ErrorMapper";
+// Put Extensions FIRST to force prototype creation before it is called elsewhere. Will throw errors otherwise.
+import prototypeExtender from "./Extensions/Index"
+prototypeExtender()
+
+// Every other import
+import { ErrorMapper } from "utils/ErrorMapper"
+import { memHack } from "utils/MemHack"
+import { creepLogic } from "Creep/Index"
+import { roomLogic } from "Room/Index"
+import { Role } from "Constants/Role"
+
 
 declare global {
   /*
@@ -11,33 +21,57 @@ declare global {
   */
   // Memory extension samples
   interface Memory {
-    uuid: number;
-    log: any;
+    uuid: number
+    log: any
   }
 
   interface CreepMemory {
-    role: string;
-    room: string;
-    working: boolean;
+    role: Role
+    room: string
+  }
+
+  // Memhack required
+  interface RawMemory {
+    [key: string]: any
   }
 
   // Syntax for adding proprties to `global` (ex "global.log")
   namespace NodeJS {
     interface Global {
-      log: any;
+      Memory?: Memory
     }
+
   }
 }
 
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
-  console.log(`Current game tick is ${Game.time}`);
+  // Memhack nonsense - cheating the game into thinking we access memory less than it otherwise would
+  memHack.modifyMemory()
+
+  console.log(`Current game tick is ${Game.time}`)
+
+  // make a list of all of our rooms
+  let myRooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 0 && r.controller.my);
+
+  // run spwan logic for each room in our empire
+  _.forEach(myRooms, r => roomLogic.spawnCreeps(r));
+
+  // run each creep role see /creeps/index.js
+  for(var name in Game.creeps) {
+      var creep = Game.creeps[name];
+
+      let role = creep.memory.role;
+      if (creepLogic[role]) {
+          creepLogic[role]?.run(creep);
+      }
+  }
 
   // Automatically delete memory of missing creeps
   for (const name in Memory.creeps) {
     if (!(name in Game.creeps)) {
-      delete Memory.creeps[name];
+      delete Memory.creeps[name]
     }
   }
 });
