@@ -5,9 +5,11 @@ export class Harvester implements CreepRole {
 
     run(creep: Creep): ScreepsReturnCode {
         //
+
+
         if(creep.store.getFreeCapacity() > 0) {
             let sources = creep.room.find(FIND_SOURCES)
-            let closestSource = creep.pos.findClosestByRange(sources)
+            let closestSource = creep.pos.findClosestByRange(creep.room.find(FIND_SOURCES))
             if(closestSource && creep.harvest(closestSource) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(closestSource)
             }
